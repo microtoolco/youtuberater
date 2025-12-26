@@ -71,9 +71,12 @@ export default function LandingPage() {
                     placeholder="https://youtube.com/watch?v=..."
                     className="flex-1 px-6 py-4 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
                   />
-                  <button className="px-8 py-4 bg-gradient-to-r from-red-500 to-orange-600 text-white font-semibold rounded-xl hover:from-red-600 hover:to-orange-700 transition-all shadow-lg shadow-red-500/30 hover:shadow-red-500/50">
+                  <Link
+                    href="/auth/signup"
+                    className="px-8 py-4 bg-gradient-to-r from-red-500 to-orange-600 text-white font-semibold rounded-xl hover:from-red-600 hover:to-orange-700 transition-all shadow-lg shadow-red-500/30 hover:shadow-red-500/50"
+                  >
                     Generate Guide
-                  </button>
+                  </Link>
                 </div>
                 <p className="text-sm text-slate-400 mt-4">
                   No URL? <Link href="/search" className="text-orange-400 hover:text-orange-300 transition-colors">Search for tutorials</Link>
@@ -326,7 +329,7 @@ export default function LandingPage() {
                 </li>
               </ul>
               <Link
-                href="/signup?plan=pro"
+                href="/auth/signup?plan=pro"
                 className="block w-full py-3 px-6 text-center bg-gradient-to-r from-red-500 to-orange-600 text-white font-semibold rounded-xl hover:from-red-600 hover:to-orange-700 transition-all shadow-lg shadow-red-500/30 hover:shadow-red-500/50"
               >
                 Start Pro Trial
