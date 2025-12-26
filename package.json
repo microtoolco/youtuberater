@@ -14,9 +14,12 @@
     "groq-sdk": "^0.37.0",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",
+    "openai": "^6.15.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-markdown": "^10.1.0",
+    "youtube-transcript": "^1.2.1",
+    "ytdl-core": "^4.11.5",
     "zod": "^4.2.1"
   },
   "devDependencies": {
@@ -30,3 +33,4 @@
     "typescript": "^5"
   }
 }
+

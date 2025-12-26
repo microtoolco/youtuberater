@@ -1,4 +1,5 @@
 // YouTube utility functions
+import { YoutubeTranscript } from "youtube-transcript";
 
 export function extractVideoId(url: string): string | null {
   const patterns = [
@@ -43,52 +44,51 @@ export async function getVideoInfo(videoId: string): Promise<{
 
 export async function getTranscript(videoId: string): Promise<string | null> {
   try {
-    // Try to get transcript using a public transcript service
-    // This uses the youtube-transcript approach
-    const response = await fetch(
-      `https://www.youtube.com/watch?v=${videoId}`
-    );
-    const html = await response.text();
+    // Use youtube-transcript library which handles auto-generated captions
+    const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId, {
+      lang: "en", // Prefer English
+    });
 
-    // Extract captions URL from the page
-    const captionsMatch = html.match(/"captions":.*?"captionTracks":\[(.*?)\]/);
-    if (!captionsMatch) {
-      console.log("No captions found for video");
+    if (!transcriptItems || transcriptItems.length === 0) {
+      console.log("No transcript items found for video:", videoId);
       return null;
     }
 
-    // Parse the captions data
-    const captionsData = captionsMatch[1];
-    const baseUrlMatch = captionsData.match(/"baseUrl":"(.*?)"/);
-    if (!baseUrlMatch) return null;
+    // Combine all transcript segments into one string
+    const fullTranscript = transcriptItems
+      .map((item) => item.text)
+      .join(" ")
+      .replace(/\s+/g, " ") // Normalize whitespace
+      .trim();
 
-    // Decode the URL
-    const captionsUrl = baseUrlMatch[1].replace(/\\u0026/g, "&");
-
-    // Fetch the transcript
-    const transcriptResponse = await fetch(captionsUrl);
-    const transcriptXml = await transcriptResponse.text();
-
-    // Parse XML and extract text
-    const textMatches = transcriptXml.matchAll(/<text[^>]*>(.*?)<\/text>/g);
-    const texts: string[] = [];
-
-    for (const match of textMatches) {
-      // Decode HTML entities
-      const text = match[1]
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/\n/g, " ");
-      texts.push(text);
+    if (!fullTranscript) {
+      console.log("Empty transcript for video:", videoId);
+      return null;
     }
 
-    return texts.join(" ");
+    return fullTranscript;
   } catch (error) {
     console.error("Error fetching transcript:", error);
-    return null;
+
+    // Try without language preference as fallback
+    try {
+      const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
+
+      if (!transcriptItems || transcriptItems.length === 0) {
+        return null;
+      }
+
+      const fullTranscript = transcriptItems
+        .map((item) => item.text)
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      return fullTranscript || null;
+    } catch (fallbackError) {
+      console.error("Fallback transcript fetch also failed:", fallbackError);
+      return null;
+    }
   }
 }
 
