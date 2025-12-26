@@ -116,7 +116,7 @@ export async function POST(request: Request) {
     let targetUserId = userId;
     if (!targetUserId && userEmail) {
       const { data: userData, error: userError } = await supabase
-        .from("profiles")
+        .from("users")
         .select("id")
         .eq("email", userEmail)
         .single();
@@ -149,7 +149,7 @@ export async function POST(request: Request) {
     };
 
     const { error: updateError } = await supabase
-      .from("profiles")
+      .from("users")
       .update(updateData)
       .eq("id", targetUserId);
 

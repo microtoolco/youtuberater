@@ -19,9 +19,9 @@ export async function GET() {
       );
     }
 
-    // Get user data from profiles table
+    // Get user data from users table
     const { data: profile, error: profileError } = await supabase
-      .from("profiles")
+      .from("users")
       .select("plan, credits")
       .eq("id", user.id)
       .single();
