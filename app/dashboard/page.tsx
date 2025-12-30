@@ -186,8 +186,16 @@ export default function DashboardPage() {
           </div>
 
           {error && (
-            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/50 rounded-xl text-red-400 text-sm">
-              {error}
+            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/50 rounded-xl text-red-400 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <span>{error}</span>
+              {error.includes("Upgrade to Pro") && (
+                <Link
+                  href="/#pricing"
+                  className="px-4 py-2 bg-gradient-to-r from-red-500 to-orange-600 text-white text-sm font-medium rounded-lg hover:from-red-600 hover:to-orange-700 transition-all whitespace-nowrap"
+                >
+                  Upgrade to Pro
+                </Link>
+              )}
             </div>
           )}
 
@@ -224,9 +232,12 @@ export default function DashboardPage() {
                   Upgrade to Pro for 50 guides/month and unlock unlimited potential.
                 </p>
               </div>
-              <button className="px-6 py-3 bg-gradient-to-r from-red-500 to-orange-600 text-white font-medium rounded-xl hover:from-red-600 hover:to-orange-700 transition-all shadow-lg shadow-red-500/20 whitespace-nowrap">
+              <Link
+                href="/#pricing"
+                className="px-6 py-3 bg-gradient-to-r from-red-500 to-orange-600 text-white font-medium rounded-xl hover:from-red-600 hover:to-orange-700 transition-all shadow-lg shadow-red-500/20 whitespace-nowrap"
+              >
                 Upgrade to Pro
-              </button>
+              </Link>
             </div>
           </div>
         )}
