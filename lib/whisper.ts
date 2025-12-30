@@ -1,6 +1,6 @@
 // Whisper transcription for videos without captions (Pro users only)
 import OpenAI from "openai";
-import ytdl from "@distube/ytdl-core";
+import play from "play-dl";
 
 // Lazy-initialize OpenAI client
 let openaiClient: OpenAI | null = null;
@@ -27,9 +27,13 @@ export async function transcribeWithWhisper(videoId: string): Promise<string | n
   try {
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-    // Check if video is valid and get info
-    const info = await ytdl.getInfo(videoUrl);
-    const duration = parseInt(info.videoDetails.lengthSeconds);
+    // Get video info
+    const videoInfo = await play.video_info(videoUrl);
+    const duration = videoInfo.video_details.durationInSec;
+
+    if (!duration) {
+      throw new Error("Could not determine video duration");
+    }
 
     // Limit to 30 minutes to control costs (30 min × $0.006 = $0.18 max)
     if (duration > 1800) {
@@ -37,29 +41,30 @@ export async function transcribeWithWhisper(videoId: string): Promise<string | n
       throw new Error("Video is too long (max 30 minutes for transcription)");
     }
 
-    // Get audio-only stream
-    const audioFormats = ytdl.filterFormats(info.formats, "audioonly");
-    if (audioFormats.length === 0) {
+    // Get audio stream
+    const stream = await play.stream(videoUrl, { quality: 2 }); // quality 2 = audio only
+
+    if (!stream || !stream.stream) {
       throw new Error("No audio stream available");
     }
 
-    // Get the best audio format (prefer mp3/m4a for smaller size)
-    const audioFormat = audioFormats.find(f => f.container === "mp4") || audioFormats[0];
-
     // Download audio to buffer
     const chunks: Buffer[] = [];
-    const audioStream = ytdl(videoUrl, { format: audioFormat });
 
     await new Promise<void>((resolve, reject) => {
-      audioStream.on("data", (chunk: Buffer) => chunks.push(chunk));
-      audioStream.on("end", () => resolve());
-      audioStream.on("error", reject);
+      stream.stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+      stream.stream.on("end", () => resolve());
+      stream.stream.on("error", reject);
     });
 
     const audioBuffer = Buffer.concat(chunks);
 
+    if (audioBuffer.length === 0) {
+      throw new Error("Empty audio buffer");
+    }
+
     // Convert buffer to File object for OpenAI
-    const audioFile = new File([audioBuffer], "audio.mp4", { type: "audio/mp4" });
+    const audioFile = new File([audioBuffer], "audio.webm", { type: "audio/webm" });
 
     // Transcribe with Whisper
     const openai = getOpenAIClient();
