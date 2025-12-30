@@ -1,0 +1,396 @@
+{
+  "name": "Tuborial - YouTube Transcript Extractor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tuborial-transcript",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-transcript",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "get_transcript",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-action",
+      "name": "Check Action",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.kome.ai/api/tools/youtube-transcripts",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ video_id: $json.videoId, format: true }) }}",
+        "options": {}
+      },
+      "id": "get-transcript-api",
+      "name": "Get Transcript (API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "command": "=yt-dlp --write-auto-sub --write-sub --sub-lang en --skip-download -o \"/tmp/{{ $json.videoId }}\" \"{{ $json.videoUrl }}\" && cat /tmp/{{ $json.videoId }}.en.vtt 2>/dev/null || cat /tmp/{{ $json.videoId }}.en.srv1 2>/dev/null || echo \"NO_SUBTITLES\""
+      },
+      "id": "yt-dlp-subtitles",
+      "name": "yt-dlp Get Subtitles",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [700, 400],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse VTT subtitle format to plain text\nconst input = $input.first().json;\nlet transcript = '';\n\nif (input.stdout && input.stdout !== 'NO_SUBTITLES') {\n  // Parse VTT format\n  const lines = input.stdout.split('\\n');\n  const textLines = [];\n  \n  for (const line of lines) {\n    // Skip VTT headers and timestamps\n    if (line.startsWith('WEBVTT') || \n        line.startsWith('Kind:') || \n        line.startsWith('Language:') ||\n        line.includes('-->') ||\n        line.match(/^\\d{2}:\\d{2}/) ||\n        line.trim() === '') {\n      continue;\n    }\n    // Remove HTML tags and add to text\n    const cleanLine = line.replace(/<[^>]*>/g, '').trim();\n    if (cleanLine && !textLines.includes(cleanLine)) {\n      textLines.push(cleanLine);\n    }\n  }\n  \n  transcript = textLines.join(' ');\n}\n\nreturn {\n  success: transcript.length > 100,\n  transcript: transcript || null,\n  error: transcript.length < 100 ? 'No subtitles found or too short' : null\n};"
+      },
+      "id": "parse-vtt",
+      "name": "Parse VTT to Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse API response\nconst input = $input.first().json;\nlet transcript = '';\n\ntry {\n  if (input.transcript) {\n    // Handle array of transcript segments\n    if (Array.isArray(input.transcript)) {\n      transcript = input.transcript.map(t => t.text || t).join(' ');\n    } else {\n      transcript = input.transcript;\n    }\n  }\n} catch (e) {\n  // API failed\n}\n\nreturn {\n  success: transcript.length > 100,\n  transcript: transcript || null,\n  error: transcript.length < 100 ? 'API failed to get transcript' : null\n};"
+      },
+      "id": "parse-api-response",
+      "name": "Parse API Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-success",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-transcript-success",
+      "name": "Got Transcript?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1140, 300]
+    },
+    {
+      "parameters": {
+        "command": "=yt-dlp -x --audio-format mp3 --audio-quality 5 -o \"/tmp/{{ $('Webhook').item.json.videoId }}.%(ext)s\" \"{{ $('Webhook').item.json.videoUrl }}\" && echo \"/tmp/{{ $('Webhook').item.json.videoId }}.mp3\""
+      },
+      "id": "download-audio",
+      "name": "Download Audio",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1360, 500],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/audio/transcriptions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "whisper-1"
+            },
+            {
+              "name": "file",
+              "parameterType": "formBinaryData",
+              "inputDataFieldName": "={{ $json.stdout.trim() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "whisper-transcribe",
+      "name": "Whisper Transcribe",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1580, 500],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format Whisper response\nconst input = $input.first().json;\n\nreturn {\n  success: !!input.text,\n  transcript: input.text || null,\n  error: input.text ? null : 'Whisper transcription failed'\n};"
+      },
+      "id": "format-whisper",
+      "name": "Format Whisper Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1800, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1360, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "respond-whisper",
+      "name": "Respond Whisper",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2020, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"success\": false, \"error\": \"All transcript methods failed\"}",
+        "options": {}
+      },
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2020, 700]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "whisper-check",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-whisper-success",
+      "name": "Whisper Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1800, 600]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Action": {
+      "main": [
+        [
+          {
+            "node": "Get Transcript (API)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "yt-dlp Get Subtitles",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Transcript (API)": {
+      "main": [
+        [
+          {
+            "node": "Parse API Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "yt-dlp Get Subtitles": {
+      "main": [
+        [
+          {
+            "node": "Parse VTT to Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse API Response": {
+      "main": [
+        [
+          {
+            "node": "Got Transcript?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse VTT to Text": {
+      "main": [
+        [
+          {
+            "node": "Got Transcript?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Got Transcript?": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Audio": {
+      "main": [
+        [
+          {
+            "node": "Whisper Transcribe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Whisper Transcribe": {
+      "main": [
+        [
+          {
+            "node": "Format Whisper Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Whisper Response": {
+      "main": [
+        [
+          {
+            "node": "Whisper Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Whisper Success?": {
+      "main": [
+        [
+          {
+            "node": "Respond Whisper",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-12-30T00:00:00.000Z",
+  "versionId": "1"
+}
