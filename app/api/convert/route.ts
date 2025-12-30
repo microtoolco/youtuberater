@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { extractVideoId, getVideoInfo, getTranscript } from "@/lib/youtube";
 import { generateGuide } from "@/lib/groq";
+import { isN8nConfigured, getTranscriptFromN8n, transcribeWithN8n } from "@/lib/n8n";
 import { z } from "zod";
 import type { SkillLevel } from "@/types";
 
@@ -87,14 +88,46 @@ export async function POST(request: Request) {
 
     // Get transcript - try YouTube captions first
     let transcript = await getTranscript(videoId);
-    let usedWhisper = false;
+    let usedN8n = false;
 
-    // If no captions available
+    // If no captions available, try n8n fallback
     if (!transcript) {
-      return NextResponse.json({
-        error: "This video doesn't have captions. Please try a video with captions or auto-generated subtitles enabled.",
-        noTranscript: true,
-      }, { status: 400 });
+      // Check if n8n is configured
+      if (!isN8nConfigured()) {
+        return NextResponse.json({
+          error: "This video doesn't have captions. Please try a video with captions or auto-generated subtitles enabled.",
+          noTranscript: true,
+        }, { status: 400 });
+      }
+
+      // For free users, prompt upgrade
+      if (!isPro) {
+        return NextResponse.json({
+          error: "This video doesn't have captions. Upgrade to Pro to transcribe any video!",
+          noTranscript: true,
+          needsUpgrade: true,
+        }, { status: 400 });
+      }
+
+      // Pro users: try n8n transcript extraction
+      console.log("No captions found, trying n8n for Pro user:", user.id);
+
+      // First try to get transcript via n8n (faster, cheaper)
+      transcript = await getTranscriptFromN8n(videoId, videoUrl);
+
+      // If that fails, try Whisper transcription via n8n
+      if (!transcript) {
+        console.log("n8n transcript failed, trying Whisper via n8n");
+        transcript = await transcribeWithN8n(videoId, videoUrl);
+        usedN8n = true;
+      }
+
+      if (!transcript) {
+        return NextResponse.json({
+          error: "Could not extract transcript from this video. Please try a different video.",
+          noTranscript: true,
+        }, { status: 400 });
+      }
     }
 
     // Generate guide using AI with skill level
@@ -120,7 +153,7 @@ export async function POST(request: Request) {
         duration: videoInfo.duration || "",
         guide_content: guide,
         status: "completed",
-        used_whisper: usedWhisper,
+        used_whisper: usedN8n,
       })
       .select()
       .single();
@@ -148,7 +181,7 @@ export async function POST(request: Request) {
         channel: videoInfo.channelName,
         duration: videoInfo.duration,
       },
-      usedWhisper,
+      usedN8n,
     });
 
   } catch (error) {
