@@ -3,9 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { extractVideoId, getVideoInfo, getTranscript } from "@/lib/youtube";
 import { generateGuide } from "@/lib/groq";
 import { z } from "zod";
+import type { SkillLevel } from "@/types";
 
 const requestSchema = z.object({
   videoUrl: z.string().url(),
+  skillLevel: z.enum(["beginner", "functional", "fluent", "expert"]).optional().default("functional"),
 });
 
 // Plan limits
@@ -65,7 +67,7 @@ export async function POST(request: Request) {
 
     // Parse request
     const body = await request.json();
-    const { videoUrl } = requestSchema.parse(body);
+    const { videoUrl, skillLevel } = requestSchema.parse(body);
 
     // Extract video ID
     const videoId = extractVideoId(videoUrl);
@@ -95,8 +97,8 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    // Generate guide using AI
-    const guide = await generateGuide(transcript, videoInfo.title);
+    // Generate guide using AI with skill level
+    const guide = await generateGuide(transcript, videoInfo.title, skillLevel as SkillLevel);
 
     if (!guide || guide.title === "INVALID_HOWTO") {
       return NextResponse.json({

@@ -4,12 +4,14 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Youtube, FileText, Clock, Wrench, LogOut, Zap, Crown } from "lucide-react";
+import { Loader2, Youtube, FileText, Clock, Wrench, LogOut, Zap, Crown, GraduationCap } from "lucide-react";
 import { GuidePreview } from "@/components/guide/GuidePreview";
-import type { GuideContent, Stats } from "@/types";
+import type { GuideContent, Stats, SkillLevel } from "@/types";
+import { SKILL_LEVEL_INFO } from "@/types";
 
 export default function DashboardPage() {
   const [url, setUrl] = useState("");
+  const [skillLevel, setSkillLevel] = useState<SkillLevel>("functional");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [guide, setGuide] = useState<GuideContent | null>(null);
@@ -49,7 +51,7 @@ export default function DashboardPage() {
       const res = await fetch("/api/convert", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoUrl: url }),
+        body: JSON.stringify({ videoUrl: url, skillLevel }),
       });
 
       const data = await res.json();
@@ -153,23 +155,55 @@ export default function DashboardPage() {
             Convert YouTube Tutorial to Guide
           </h2>
 
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1 relative">
-              <Youtube className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input
-                type="url"
-                placeholder="Paste YouTube video URL (e.g., https://youtube.com/watch?v=...)"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !loading && handleConvert()}
-                className="w-full pl-12 pr-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
-                disabled={loading}
-              />
+          <div className="flex flex-col gap-4">
+            {/* URL Input */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 relative">
+                <Youtube className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input
+                  type="url"
+                  placeholder="Paste YouTube video URL (e.g., https://youtube.com/watch?v=...)"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !loading && handleConvert()}
+                  className="w-full pl-12 pr-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                  disabled={loading}
+                />
+              </div>
             </div>
+
+            {/* Skill Level Selector */}
+            <div>
+              <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
+                <GraduationCap className="w-4 h-4" />
+                <span>Guide Detail Level</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {(Object.keys(SKILL_LEVEL_INFO) as SkillLevel[]).map((level) => (
+                  <button
+                    key={level}
+                    onClick={() => setSkillLevel(level)}
+                    disabled={loading}
+                    className={`p-3 rounded-xl border transition-all text-left ${
+                      skillLevel === level
+                        ? "bg-gradient-to-r from-red-500/20 to-orange-500/20 border-red-500/50 text-white"
+                        : "bg-slate-900 border-slate-600 text-slate-400 hover:border-slate-500 hover:text-white"
+                    } disabled:opacity-50`}
+                  >
+                    <div className="font-medium text-sm">{SKILL_LEVEL_INFO[level].label}</div>
+                    <div className="text-xs opacity-70 mt-0.5 line-clamp-2">
+                      {SKILL_LEVEL_INFO[level].description}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Generate Button */}
             <button
               onClick={handleConvert}
               disabled={loading || !url.trim()}
-              className="px-6 py-3 bg-gradient-to-r from-red-500 to-orange-600 text-white font-medium rounded-xl hover:from-red-600 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-red-500/20 flex items-center gap-2"
+              className="w-full sm:w-auto sm:self-end px-6 py-3 bg-gradient-to-r from-red-500 to-orange-600 text-white font-medium rounded-xl hover:from-red-600 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-red-500/20 flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>

@@ -1,6 +1,6 @@
 import Groq from "groq-sdk";
-import { GUIDE_EXTRACTION_PROMPT } from "@/lib/prompts/guide";
-import type { GuideContent } from "@/types";
+import { getGuidePrompt } from "@/lib/prompts/guide";
+import type { GuideContent, SkillLevel } from "@/types";
 
 // Lazy-initialize Groq client to avoid build errors when env var not set
 let groqClient: Groq | null = null;
@@ -19,12 +19,14 @@ function getGroqClient(): Groq {
  *
  * @param transcript - The full transcript text from the YouTube video
  * @param videoTitle - The title of the YouTube video
+ * @param skillLevel - The user's skill level for detail adjustment
  * @returns Promise<GuideContent> - Structured guide content
  * @throws Error if API call fails or response is invalid
  */
 export async function generateGuide(
   transcript: string,
-  videoTitle: string
+  videoTitle: string,
+  skillLevel: SkillLevel = "functional"
 ): Promise<GuideContent> {
   try {
     // Validate inputs
@@ -36,8 +38,8 @@ export async function generateGuide(
       throw new Error("Video title cannot be empty");
     }
 
-    // Construct the full prompt with transcript and video title
-    const fullPrompt = `${GUIDE_EXTRACTION_PROMPT}
+    // Construct the full prompt with transcript, video title, and skill level
+    const fullPrompt = `${getGuidePrompt(skillLevel)}
 
 Video Title: ${videoTitle}
 

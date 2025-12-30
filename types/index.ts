@@ -1,3 +1,24 @@
+export type SkillLevel = "beginner" | "functional" | "fluent" | "expert";
+
+export const SKILL_LEVEL_INFO: Record<SkillLevel, { label: string; description: string }> = {
+  beginner: {
+    label: "Beginner",
+    description: "Detailed explanations for every step, assumes no prior knowledge"
+  },
+  functional: {
+    label: "Functional",
+    description: "Clear instructions with key concepts explained"
+  },
+  fluent: {
+    label: "Fluent",
+    description: "Concise steps for those familiar with the basics"
+  },
+  expert: {
+    label: "Expert",
+    description: "Minimal explanations, just the essential steps"
+  }
+};
+
 export interface User {
   id: string;
   email: string;
