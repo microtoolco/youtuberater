@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@distube/ytdl-core": "^4.16.12",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.89.0",
     "groq-sdk": "^0.37.0",
@@ -19,7 +20,6 @@
     "react-dom": "19.2.3",
     "react-markdown": "^10.1.0",
     "youtube-transcript": "^1.2.1",
-    "ytdl-core": "^4.11.5",
     "zod": "^4.2.1"
   },
   "devDependencies": {
@@ -33,4 +33,3 @@
     "typescript": "^5"
   }
 }
-

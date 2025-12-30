@@ -1,6 +1,6 @@
 // Whisper transcription for videos without captions (Pro users only)
 import OpenAI from "openai";
-import ytdl from "ytdl-core";
+import ytdl from "@distube/ytdl-core";
 
 // Lazy-initialize OpenAI client
 let openaiClient: OpenAI | null = null;
