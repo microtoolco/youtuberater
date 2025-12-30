@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { extractVideoId, getVideoInfo, getTranscript } from "@/lib/youtube";
 import { generateGuide } from "@/lib/groq";
-import { transcribeWithWhisper, isWhisperConfigured } from "@/lib/whisper";
 import { z } from "zod";
 
 const requestSchema = z.object({
@@ -88,53 +87,12 @@ export async function POST(request: Request) {
     let transcript = await getTranscript(videoId);
     let usedWhisper = false;
 
-    // If no captions available, handle based on plan
+    // If no captions available
     if (!transcript) {
-      if (!isPro) {
-        // Free users: prompt to upgrade
-        return NextResponse.json({
-          error: "This video doesn't have captions available. Upgrade to Pro to transcribe any video with AI!",
-          noTranscript: true,
-          needsUpgrade: true,
-        }, { status: 400 });
-      }
-
-      // Pro users: try Whisper transcription
-      if (!isWhisperConfigured()) {
-        return NextResponse.json({
-          error: "AI transcription is temporarily unavailable. Please try a video with captions.",
-          noTranscript: true,
-        }, { status: 400 });
-      }
-
-      try {
-        console.log("No captions found, using Whisper for Pro user:", user.id);
-        transcript = await transcribeWithWhisper(videoId);
-        usedWhisper = true;
-
-        if (!transcript) {
-          return NextResponse.json({
-            error: "Could not transcribe this video. Please try a different video.",
-            noTranscript: true,
-          }, { status: 400 });
-        }
-      } catch (whisperError) {
-        console.error("Whisper transcription failed:", whisperError);
-
-        const errorMessage = whisperError instanceof Error ? whisperError.message : "Unknown error";
-
-        if (errorMessage.includes("too long")) {
-          return NextResponse.json({
-            error: "This video is too long for AI transcription (max 30 minutes). Please try a shorter video or one with captions.",
-            noTranscript: true,
-          }, { status: 400 });
-        }
-
-        return NextResponse.json({
-          error: "Failed to transcribe video. Please try a different video or one with captions.",
-          noTranscript: true,
-        }, { status: 400 });
-      }
+      return NextResponse.json({
+        error: "This video doesn't have captions. Please try a video with captions or auto-generated subtitles enabled.",
+        noTranscript: true,
+      }, { status: 400 });
     }
 
     // Generate guide using AI
