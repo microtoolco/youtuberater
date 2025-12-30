@@ -1,0 +1,100 @@
+{
+  "name": "Tuborial - YouTube Transcript (Cloud)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tuborial-transcript",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.kome.ai/api/tools/youtube-transcripts",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ video_id: $json.videoId, format: true }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "get-transcript-api",
+      "name": "Get Transcript",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse API response\nconst input = $input.first().json;\nlet transcript = '';\n\ntry {\n  if (input.transcript) {\n    // Handle array of transcript segments\n    if (Array.isArray(input.transcript)) {\n      transcript = input.transcript.map(t => t.text || t).join(' ');\n    } else {\n      transcript = String(input.transcript);\n    }\n  }\n} catch (e) {\n  console.log('Parse error:', e.message);\n}\n\n// Clean up the transcript\ntranscript = transcript\n  .replace(/\\[.*?\\]/g, '') // Remove [Music], [Applause], etc.\n  .replace(/\\s+/g, ' ')    // Normalize whitespace\n  .trim();\n\nreturn {\n  success: transcript.length > 50,\n  transcript: transcript.length > 50 ? transcript : null,\n  error: transcript.length > 50 ? null : 'Could not extract transcript from this video'\n};"
+      },
+      "id": "parse-response",
+      "name": "Parse Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Transcript": {
+      "main": [
+        [
+          {
+            "node": "Parse Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "versionId": "2"
+}
