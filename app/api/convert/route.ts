@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { extractVideoId, getVideoInfo, getTranscript } from "@/lib/youtube";
 import { generateGuide } from "@/lib/groq";
-import { isAssemblyAIConfigured, transcribeWithAssemblyAI } from "@/lib/assemblyai";
+import { transcribeVideo } from "@/lib/transcribe";
 import { z } from "zod";
 import type { SkillLevel } from "@/types";
 
@@ -90,16 +90,8 @@ export async function POST(request: Request) {
     let transcript = await getTranscript(videoId);
     let usedAI = false;
 
-    // If no captions available, use AssemblyAI
+    // If no captions available, try AI transcription
     if (!transcript) {
-      // Check if AssemblyAI is configured
-      if (!isAssemblyAIConfigured()) {
-        return NextResponse.json({
-          error: "This video doesn't have captions. Please try a video with captions or auto-generated subtitles enabled.",
-          noTranscript: true,
-        }, { status: 400 });
-      }
-
       // For free users, prompt upgrade
       if (!isPro) {
         return NextResponse.json({
@@ -109,14 +101,16 @@ export async function POST(request: Request) {
         }, { status: 400 });
       }
 
-      // Pro users: transcribe with AssemblyAI
-      console.log("No captions found, using AssemblyAI for Pro user:", user.id);
-      transcript = await transcribeWithAssemblyAI(videoUrl);
-      usedAI = true;
+      // Pro users: try multiple transcription methods
+      console.log("No captions found, trying AI transcription for Pro user:", user.id);
+      const result = await transcribeVideo(videoId, videoUrl);
 
-      if (!transcript) {
+      if (result.success && result.transcript) {
+        transcript = result.transcript;
+        usedAI = true;
+      } else {
         return NextResponse.json({
-          error: "Could not transcribe this video. Please try a different video.",
+          error: result.error || "Could not transcribe this video. Please try a different video.",
           noTranscript: true,
         }, { status: 400 });
       }
