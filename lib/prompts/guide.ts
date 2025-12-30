@@ -84,7 +84,7 @@ Transcript:
 // Keep the old export for backwards compatibility
 export const GUIDE_EXTRACTION_PROMPT = getGuidePrompt("functional");
 
-export const TOOLS_AFFILIATE_PROMPT = \`Given these tools and materials from a how-to guide, suggest the best places to buy them and estimate prices.
+export const TOOLS_AFFILIATE_PROMPT = `Given these tools and materials from a how-to guide, suggest the best places to buy them and estimate prices.
 
 For each item, provide:
 1. A reliable place to purchase (Amazon, Home Depot, etc.)
@@ -92,4 +92,4 @@ For each item, provide:
 3. An estimated price range
 
 Tools and Materials:
-\`;
+`;

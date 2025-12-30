@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { extractVideoId, getVideoInfo, getTranscript } from "@/lib/youtube";
 import { generateGuide } from "@/lib/groq";
-import { isN8nConfigured, getTranscriptFromN8n, transcribeWithN8n } from "@/lib/n8n";
+import { isAssemblyAIConfigured, transcribeWithAssemblyAI } from "@/lib/assemblyai";
 import { z } from "zod";
 import type { SkillLevel } from "@/types";
 
@@ -88,12 +88,12 @@ export async function POST(request: Request) {
 
     // Get transcript - try YouTube captions first
     let transcript = await getTranscript(videoId);
-    let usedN8n = false;
+    let usedAI = false;
 
-    // If no captions available, try n8n fallback
+    // If no captions available, use AssemblyAI
     if (!transcript) {
-      // Check if n8n is configured
-      if (!isN8nConfigured()) {
+      // Check if AssemblyAI is configured
+      if (!isAssemblyAIConfigured()) {
         return NextResponse.json({
           error: "This video doesn't have captions. Please try a video with captions or auto-generated subtitles enabled.",
           noTranscript: true,
@@ -109,22 +109,14 @@ export async function POST(request: Request) {
         }, { status: 400 });
       }
 
-      // Pro users: try n8n transcript extraction
-      console.log("No captions found, trying n8n for Pro user:", user.id);
-
-      // First try to get transcript via n8n (faster, cheaper)
-      transcript = await getTranscriptFromN8n(videoId, videoUrl);
-
-      // If that fails, try Whisper transcription via n8n
-      if (!transcript) {
-        console.log("n8n transcript failed, trying Whisper via n8n");
-        transcript = await transcribeWithN8n(videoId, videoUrl);
-        usedN8n = true;
-      }
+      // Pro users: transcribe with AssemblyAI
+      console.log("No captions found, using AssemblyAI for Pro user:", user.id);
+      transcript = await transcribeWithAssemblyAI(videoUrl);
+      usedAI = true;
 
       if (!transcript) {
         return NextResponse.json({
-          error: "Could not extract transcript from this video. Please try a different video.",
+          error: "Could not transcribe this video. Please try a different video.",
           noTranscript: true,
         }, { status: 400 });
       }
@@ -153,7 +145,7 @@ export async function POST(request: Request) {
         duration: videoInfo.duration || "",
         guide_content: guide,
         status: "completed",
-        used_whisper: usedN8n,
+        used_whisper: usedAI,
       })
       .select()
       .single();
@@ -181,7 +173,7 @@ export async function POST(request: Request) {
         channel: videoInfo.channelName,
         duration: videoInfo.duration,
       },
-      usedN8n,
+      usedAI,
     });
 
   } catch (error) {
