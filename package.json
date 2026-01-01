@@ -1,6 +1,7 @@
 {
-  "name": "tuborial",
+  "name": "youtube-rater",
   "version": "0.1.0",
+  "description": "Analyze YouTube videos before you watch. Detect clickbait, gatekeeping, and predatory content.",
   "private": true,
   "scripts": {
     "dev": "next dev",

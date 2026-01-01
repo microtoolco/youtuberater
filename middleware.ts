@@ -1,8 +1,9 @@
-import { type NextRequest } from "next/server";
-import { updateSession } from "@/lib/supabase/middleware";
+import { type NextRequest, NextResponse } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  return await updateSession(request);
+  // YouTube Rater MVP: No auth required
+  // Supabase integration can be added later for user accounts
+  return NextResponse.next();
 }
 
 export const config = {
