@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { VideoAnalysis } from '@/lib/analyzers/types';
+import { TranscriptStatus, TranscriptInsights } from '@/lib/transcript/types';
 import { ScoreGauge } from '@/components/score-gauge';
 import { RedFlagsPanel } from '@/components/red-flags-panel';
 import { ScoreBreakdown } from '@/components/score-breakdown';
@@ -14,15 +15,28 @@ import { VerdictPanel } from '@/components/verdict-panel';
 import { GranularMetrics } from '@/components/granular-metrics';
 import { GreenFlagsPanel } from '@/components/green-flags-panel';
 import { SkipIntroPanel } from '@/components/skip-intro-panel';
+import { TranscriptInsightsSection } from '@/components/transcript-insights';
 
-type TabType = 'overview' | 'insights' | 'metrics';
+// Extended analysis response type - omit base transcript to override with TranscriptStatus
+interface ExtendedAnalysis extends Omit<VideoAnalysis, 'transcript'> {
+  transcript?: TranscriptStatus;
+  transcriptInsights?: TranscriptInsights;
+  nextActions?: {
+    fetchTranscriptInsights?: {
+      endpoint: string;
+      body: Record<string, unknown>;
+    };
+  };
+}
+
+type TabType = 'overview' | 'insights' | 'transcript' | 'metrics';
 
 function AnalyzeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const url = searchParams.get('url');
 
-  const [analysis, setAnalysis] = useState<VideoAnalysis | null>(null);
+  const [analysis, setAnalysis] = useState<ExtendedAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -75,8 +89,9 @@ function AnalyzeContent() {
 
   const tabs = [
     { id: 'overview' as TabType, label: 'Overview', icon: '📊' },
-    { id: 'insights' as TabType, label: 'Content Insights', icon: '💡' },
-    { id: 'metrics' as TabType, label: 'Detailed Metrics', icon: '📈' },
+    { id: 'transcript' as TabType, label: 'Transcript', icon: '📝' },
+    { id: 'insights' as TabType, label: 'AI Insights', icon: '💡' },
+    { id: 'metrics' as TabType, label: 'Metrics', icon: '📈' },
   ];
 
   return (
@@ -126,11 +141,25 @@ function AnalyzeContent() {
               />
             )}
 
-            {/* Transcript indicator */}
-            {analysis.hasTranscript && (
-              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-center">
-                <span className="text-emerald-400 text-sm">
-                  ✓ Full transcript analyzed for deeper insights
+            {/* Transcript status indicator */}
+            {analysis.transcript && (
+              <div className={`rounded-lg p-3 text-center ${
+                analysis.transcript.status === 'available'
+                  ? 'bg-emerald-500/10 border border-emerald-500/30'
+                  : analysis.transcript.status === 'unavailable'
+                  ? 'bg-slate-700/30 border border-slate-600/30'
+                  : 'bg-blue-500/10 border border-blue-500/30'
+              }`}>
+                <span className={`text-sm ${
+                  analysis.transcript.status === 'available'
+                    ? 'text-emerald-400'
+                    : analysis.transcript.status === 'unavailable'
+                    ? 'text-slate-500'
+                    : 'text-blue-400'
+                }`}>
+                  {analysis.transcript.status === 'available' && '✓ Transcript analyzed'}
+                  {analysis.transcript.status === 'not_fetched' && '⏳ Transcript loading...'}
+                  {analysis.transcript.status === 'unavailable' && '✗ No captions available'}
                 </span>
               </div>
             )}
@@ -195,6 +224,15 @@ function AnalyzeContent() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {activeTab === 'transcript' && (
+              <TranscriptInsightsSection
+                videoId={analysis.videoId}
+                initialStatus={analysis.transcript || { status: 'not_fetched' }}
+                initialInsights={analysis.transcriptInsights}
+                nextAction={analysis.nextActions?.fetchTranscriptInsights}
+              />
             )}
 
             {activeTab === 'insights' && (
