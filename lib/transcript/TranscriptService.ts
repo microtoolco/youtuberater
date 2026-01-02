@@ -2,6 +2,8 @@
 
 import { TranscriptData, TranscriptProvider } from './types';
 import { InnertubeTranscriptProvider } from './providers/InnertubeTranscriptProvider';
+import { KomeAIProvider } from './providers/KomeAIProvider';
+import { AssemblyAIProvider } from './providers/AssemblyAIProvider';
 import { createLogger, Logger } from './utils/logger';
 
 export class TranscriptService {
@@ -11,11 +13,25 @@ export class TranscriptService {
   constructor(logger?: Logger) {
     this.logger = logger || createLogger({ operation: 'TranscriptService' });
 
-    // Initialize providers in priority order
-    this.providers = [
-      new InnertubeTranscriptProvider(this.logger),
-      // Future: Add more providers here (e.g., AssemblyAI, etc.)
-    ];
+    // Initialize providers in priority order:
+    // 1. InnerTube (free, uses YouTube's captions)
+    // 2. Kome.ai (free API, fast fallback)
+    // 3. AssemblyAI (paid, transcribes audio - slowest but most reliable)
+    const innertubeProvider = new InnertubeTranscriptProvider(this.logger);
+    const komeAIProvider = new KomeAIProvider();
+    const assemblyAIProvider = new AssemblyAIProvider();
+
+    this.providers = [innertubeProvider, komeAIProvider];
+
+    // Add AssemblyAI as final fallback if configured
+    if (assemblyAIProvider.isConfigured()) {
+      this.providers.push(assemblyAIProvider);
+      this.logger.info('AssemblyAI fallback enabled');
+    }
+
+    this.logger.info('Transcript providers initialized', {
+      providers: this.providers.map(p => p.name),
+    });
 
     // Sort by priority
     this.providers.sort((a, b) => a.priority - b.priority);

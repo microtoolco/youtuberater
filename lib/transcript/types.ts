@@ -12,7 +12,7 @@ export interface TranscriptData {
   language: string;
   segments: TranscriptSegment[];
   fullText: string;
-  source: 'innertube' | 'youtube-transcript' | 'assemblyai';
+  source: 'innertube' | 'youtube-transcript' | 'assemblyai' | 'komeai';
 }
 
 export interface KeyMoment {
